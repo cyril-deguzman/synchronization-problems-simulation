@@ -1,12 +1,8 @@
 import threading 
 
 lock = threading.Semaphore()
-lock.acquire()
-
-global status 
-status = 'hello'
-
+lock._value = 2
 if lock.acquire():
-  print(status)
+  print(lock._value)
 else:
   print('blocked')
