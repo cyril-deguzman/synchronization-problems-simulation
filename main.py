@@ -45,7 +45,7 @@ class Model(threading.Thread):
         entered += 1
       # END OF CRITICAL SECTION
       
-      print(f'Person [{self.id}] with color [{self.color}] has entered the fitting room.')
+      print(f'Model [{self.id}] with color [{self.color}] has entered the fitting room.')
       time.sleep(rand.randint(1, 6))
       self.hasDressed = True
       
@@ -55,28 +55,33 @@ class Model(threading.Thread):
       # CRITICAL SECTION
       with lock_entered:
         with lock_exited:
-          if self.color == 'green':
+          if self.color == 'Green':
             gctr -= 1
           else:
             bctr -= 1
           if entered == limit or entered == exited:
             # clear flag and replenish slots
             self.flag.clear()
-            print('empty fitting room')
+            print('Empty fitting room')
             slots._value = limit
             self.wait_flag.set()
             
             # swap flag or repeat
-            if (self.color == 'green' and bctr != 0 
-              or self.color == 'blue' and gctr != 0
-              or self.color == 'green' and gctr == 0
-              or self.color == 'blue' and bctr == 0):
+            if self.color == 'Green' and bctr != 0 or self.color == 'Green' and gctr == 0:
               self.swap_flag.set()
+              if(bctr != 0):
+                print('Blue only')
+            elif self.color == 'Blue' and bctr == 0 or self.color == 'Blue' and gctr != 0:
+              self.swap_flag.set()
+              if(gctr != 0):
+                print('Green only')
             else:
+              print(f'{self.color} only')
               self.flag.set()
       # CRITICAL SECTION
     else:
       self.wait_flag.wait()
+
 def main():
   # init global variables
   global lock
@@ -102,8 +107,8 @@ def main():
   exited = 0
 
   # init models
-  blue = [Model('blue', i, blue_flag, green_flag, wait_flag) for i in range(int(input()))]
-  green = [Model('green', i + len(blue), green_flag, blue_flag, wait_flag) for i in range(int(input()))]
+  blue = [Model('Blue', i, blue_flag, green_flag, wait_flag) for i in range(int(input()))]
+  green = [Model('Green', i + len(blue), green_flag, blue_flag, wait_flag) for i in range(int(input()))]
   models = []
   
   bctr = len(blue)
