@@ -11,14 +11,13 @@ class Model(threading.Thread):
     self.flag = flag
     self.swap_flag = swap_flag
     self.first = False
+    
   def run(self):
     # randomized arrival time
     time.sleep(rand.randint(1, 6))
     
     # CRITICAL SECTION FOR FIRST THREAD TO ARRIVE
     if lock.acquire(blocking=False):
-      global status 
-      status = self.color
       self.first = True
       print(f'{self.color} only')
       self.fit()
@@ -57,11 +56,10 @@ class Model(threading.Thread):
 
 def main():
   # init global variables
-  global status
   global lock
   global slots
-  global entered
   global limit
+  global entered
   global lock_entered
 
   # init room
@@ -71,7 +69,6 @@ def main():
   lock_entered = threading.Semaphore()
   blue_flag = threading.Event()
   green_flag = threading.Event()
-  status = 'empty'
   entered = 0
   
   # init models
