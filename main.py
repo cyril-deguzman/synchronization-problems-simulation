@@ -3,38 +3,57 @@ import time
 import random as rand
 
 class Model(threading.Thread):
-  def __init__(self, color, id, flag):
+  def __init__(self, color, id, flag, swap_flag):
     super().__init__()
     self.id = id
     self.color = color
-    self.hasDressed = 0
+    self.hasDressed = False
     self.flag = flag
-
+    self.swap_flag = swap_flag
+    self.first = False
   def run(self):
     # randomized arrival time
-    time.sleep(rand.randint(1, 21))
+    time.sleep(rand.randint(1, 6))
     
     # CRITICAL SECTION FOR FIRST THREAD TO ARRIVE
     if lock.acquire(blocking=False):
       global status 
       status = self.color
-      self.hasDressed = 1
-      self.flag.set()
+      self.first = True
+      print(f'{self.color} only')
+      self.fit()
     # END OF CRITICAL SECTION
+
     else:
-      while self.hasDressed is 0:
+      while not self.hasDressed:
         self.flag.wait()
         self.fit()
     
   def fit(self):
-    slots.acquire()
     global entered
+    
+    # if first thread to enter an empty room
+    slots.acquire()
+    if self.first:
+      self.flag.set()
+    
     # CRITICAL SECTION
-    if self.color is status:
+    with lock_entered:
       entered += 1
-      print(f'Person [{self.id}] with color [{self.color}] has entered the fitting room.')
-      time.sleep(rand.randint(1, 21))
     # END OF CRITICAL SECTION
+    
+    print(f'Person [{self.id}] with color [{self.color}] has entered the fitting room.')
+    time.sleep(rand.randint(1, 6))
+    self.hasDressed = True
+
+    # CRITICAL SECTION
+    with lock_entered:
+      if entered is limit:
+        self.flag.clear()
+        print('empty fitting room')
+        self.swap_flag.set()
+        slots._value = limit
+    # CRITICAL SECTION
 
 def main():
   # init global variables
@@ -42,20 +61,22 @@ def main():
   global lock
   global slots
   global entered
-  global swap
+  global limit
+  global lock_entered
 
   # init room
-  swap = int(input())
-  slots = threading.Semaphore(swap)
+  limit = int(input())
+  slots = threading.Semaphore(limit)
   lock = threading.Semaphore()
+  lock_entered = threading.Semaphore()
   blue_flag = threading.Event()
   green_flag = threading.Event()
   status = 'empty'
   entered = 0
   
   # init models
-  blue = [Model('blue', i, blue_flag) for i in range(int(input()))]
-  green = [Model('green', i + len(blue), green_flag) for i in range(int(input()))]
+  blue = [Model('blue', i, blue_flag, green_flag) for i in range(int(input()))]
+  green = [Model('green', i + len(blue), green_flag, blue_flag) for i in range(int(input()))]
   models = []
 
   for model in blue:
