@@ -39,7 +39,7 @@ class Model(threading.Thread):
     global gctr 
     global bctr 
 
-    print(f'Model {self.id} {self.color} has entered.')
+    print(f'native_id: {self.native_id} id: {self.id} color: {self.color} has entered.')
 
     # randomized time to fit
     time.sleep(rand.randint(1, 3))
@@ -56,6 +56,7 @@ class Model(threading.Thread):
         
         if finished == limit and bctr != 0 and gctr != 0:
           status = 'Green' if self.color == 'Blue' else 'Blue'
+          print('Empty fitting room')
           print(status, 'only')
           self.replenish()
           finished = 0
@@ -65,12 +66,14 @@ class Model(threading.Thread):
 
         elif self.color == 'Green' and gctr == 0:
           status = 'Blue'
+          print('Empty fitting room')
           print(status, 'only')
           self.replenish()
           finished = 0
 
         elif self.color == 'Blue' and bctr == 0:
           status = 'Green'
+          print('Empty fitting room')
           print(status, 'only')
           self.replenish()
           finished = 0
