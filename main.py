@@ -3,114 +3,118 @@ import time
 import random as rand
 
 class Model(threading.Thread):
-  def __init__(self, color, id, flag, swap_flag, wait_flag):
+  def __init__(self, color, id):
     super().__init__()
-    self.id = id
     self.color = color
+    self.id = id
     self.hasDressed = False
-    self.flag = flag
-    self.swap_flag = swap_flag
-    self.wait_flag = wait_flag
-    self.first = False
-    
+
   def run(self):
-    # randomized arrival time
-    time.sleep(rand.randint(1, 6))
-    
-    # CRITICAL SECTION FOR FIRST THREAD TO ARRIVE
-    if lock.acquire(blocking=False):
-      self.first = True
-      print(f'{self.color} only')
-      self.fit()
-    # END OF CRITICAL SECTION
+    global status
 
-    else:
-      while not self.hasDressed:
-        self.flag.wait()
+    # randomized time to arrive
+    time.sleep(rand.randint(1, 3))
+
+    while not self.hasDressed:
+      slots.acquire()
+
+      with status_lock:
+        if status == 'Empty':
+          status = self.color
+          isAllowed = True
+          print(status, 'only')
+        elif status == self.color:
+          isAllowed = True
+        else:
+          isAllowed = False
+          slots.release()
+      
+      if isAllowed:
         self.fit()
-    
+
   def fit(self):
-    global entered
-    global exited
-    global bctr 
+    global status
+    global limit
+    global finished
     global gctr 
+    global bctr 
 
-    # if first thread to enter an empty room
-    if slots.acquire(blocking=False):
-      if self.first:
-        self.flag.set()
-      
-      # CRITICAL SECTION
-      with lock_entered:
-        entered += 1
-      # END OF CRITICAL SECTION
-      
-      print(f'Model [{self.id}] with color [{self.color}] has entered the fitting room.')
-      time.sleep(rand.randint(1, 6))
-      self.hasDressed = True
-      
-      with lock_exited:
-        exited += 1
+    print(f'Model {self.id} {self.color} has entered.')
 
-      # CRITICAL SECTION
-      with lock_entered:
-        with lock_exited:
-          if self.color == 'Green':
-            gctr -= 1
-          else:
-            bctr -= 1
-          if entered == limit or entered == exited:
-            # clear flag and replenish slots
-            self.flag.clear()
-            print('Empty fitting room')
-            slots._value = limit
-            self.wait_flag.set()
-            
-            # swap flag or repeat
-            if self.color == 'Green' and bctr != 0 or self.color == 'Green' and gctr == 0:
-              self.swap_flag.set()
-              if(bctr != 0):
-                print('Blue only')
-            elif self.color == 'Blue' and bctr == 0 or self.color == 'Blue' and gctr != 0:
-              self.swap_flag.set()
-              if(gctr != 0):
-                print('Green only')
-            else:
-              print(f'{self.color} only')
-              self.flag.set()
-      # CRITICAL SECTION
-    else:
-      self.wait_flag.wait()
+    # randomized time to fit
+    time.sleep(rand.randint(1, 3))
+    self.hasDressed = True
+
+    with status_lock:
+      with finished_lock:
+        finished += 1
+        
+        if self.color == 'Green':
+          gctr -= 1
+        else:
+          bctr -= 1
+        
+        if finished == limit and bctr != 0 and gctr != 0:
+          status = 'Green' if self.color == 'Blue' else 'Blue'
+          print(status, 'only')
+          self.replenish()
+          finished = 0
+
+        elif gctr == 0 and bctr == 0:
+          print('Empty fitting room')
+
+        elif self.color == 'Green' and gctr == 0:
+          status = 'Blue'
+          print(status, 'only')
+          self.replenish()
+          finished = 0
+
+        elif self.color == 'Blue' and bctr == 0:
+          status = 'Green'
+          print(status, 'only')
+          self.replenish()
+          finished = 0
+
+        elif self.color == 'Green' and gctr != 0 and bctr == 0 and finished == limit:
+          self.replenish()
+          print(status, 'only')
+          finished = 0
+          
+        elif self.color == 'Blue' and bctr != 0 and gctr == 0 and finished == limit:
+          self.replenish()
+          print(status, 'only')
+          finished = 0
+
+  def replenish(self):
+    global finished     
+    for i in range(finished):
+      slots.release()
 
 def main():
   # init global variables
-  global lock
   global slots
   global limit
-  global entered
-  global exited
-  global lock_entered
-  global lock_exited
-  global bctr 
+  global finished 
+  global status
+  global bctr
   global gctr
 
+  global status_lock
+  global finished_lock
+
   # init room
-  limit = int(input())
+  limit = int(input('input slots: '))
   slots = threading.Semaphore(limit)
-  lock = threading.Semaphore()
-  lock_entered = threading.Semaphore()
-  lock_exited = threading.Semaphore()
-  blue_flag = threading.Event()
-  green_flag = threading.Event()
-  wait_flag = threading.Event()
-  entered = 0
-  exited = 0
+  status_lock = threading.Semaphore()
+  finished_lock = threading.Semaphore()
+  status = 'Empty'
+  finished = 0
 
   # init models
-  blue = [Model('Blue', i, blue_flag, green_flag, wait_flag) for i in range(int(input()))]
-  green = [Model('Green', i + len(blue), green_flag, blue_flag, wait_flag) for i in range(int(input()))]
+  blue = [Model('Blue', i) for i in range(int(input('input blue threads: ')))]
+  green = [Model('Green', i + len(blue)) for i in range(int(input('input green threads: ')))]
   models = []
-  
+
   bctr = len(blue)
   gctr = len(green)
 
